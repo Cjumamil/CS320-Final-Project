@@ -30,17 +30,23 @@ def load_and_explore_data(filepath):
     print("-" * 80)
     print(f"Total number of records: {len(df)}")
     print(f"Number of features: {len(df.columns)}")
+    print("\nColumns:")
+    print(df.columns.tolist())
     
-    print("\n2. FIRST FEW ROWS:")
+    print("\n2. FIRST FIVE ROWS OF DATA:")
+    print("-" * 80)
     print(df.head())
     
     print("\n3. DATA TYPES:")
+    print("-" * 80)
     print(df.dtypes)
     
-    print("\n4. BASIC STATISTICS:")
+    print("\n4. SUMMARY STATISTICS:")
+    print("-" * 80)
     print(df.describe())
     
-    print("\n5. MISSING VALUES:")
+    print("\n5. MISSING VALUES CHECK:")
+    print("-" * 80)
     print(df.isnull().sum())
     
     return df
@@ -96,30 +102,34 @@ def analyze_focus_by_beverage(df):
     print(f"   F-statistic: {f_stat:.4f}")
     print(f"   P-value: {p_value:.6f}")
     
-    if p_value < 0.05:
-        print("   RESULT: Significant difference in focus levels between beverage types (p < 0.05)")
+    alpha = 0.05
+    if p_value < alpha:
+        print(f"   Result: Significant difference in focus levels between beverage types (p < {alpha})")
     else:
-        print("   RESULT: No significant difference in focus levels between beverage types (p >= 0.05)")
+        print(f"   Result: No significant difference in focus levels between beverage types (p >= {alpha})")
     
-    # Pairwise comparisons
+    # Pairwise t-tests
     print("\n3. PAIRWISE T-TESTS:")
+    t_ct, p_ct = stats.ttest_ind(coffee_focus, tea_focus, equal_var=False)
+    t_ce, p_ce = stats.ttest_ind(coffee_focus, energy_focus, equal_var=False)
+    t_te, p_te = stats.ttest_ind(tea_focus, energy_focus, equal_var=False)
     
-    # Coffee vs Tea
-    t_stat, p_val = stats.ttest_ind(coffee_focus, tea_focus)
-    print(f"   Coffee vs Tea: t={t_stat:.4f}, p={p_val:.6f}")
+    print(f"   Coffee vs. Tea: t={t_ct:.4f}, p={p_ct:.6f}")
+    print(f"   Coffee vs. Energy Drink: t={t_ce:.4f}, p={p_ce:.6f}")
+    print(f"   Tea vs. Energy Drink: t={t_te:.4f}, p={p_te:.6f}")
     
-    # Coffee vs Energy Drink
-    t_stat, p_val = stats.ttest_ind(coffee_focus, energy_focus)
-    print(f"   Coffee vs Energy Drink: t={t_stat:.4f}, p={p_val:.6f}")
-    
-    # Tea vs Energy Drink
-    t_stat, p_val = stats.ttest_ind(tea_focus, energy_focus)
-    print(f"   Tea vs Energy Drink: t={t_stat:.4f}, p={p_val:.6f}")
-    
-    return focus_by_beverage
+    return {
+        'focus_by_beverage': focus_by_beverage,
+        'anova': (f_stat, p_value),
+        'pairwise_tests': {
+            'coffee_vs_tea': (t_ct, p_ct),
+            'coffee_vs_energy': (t_ce, p_ce),
+            'tea_vs_energy': (t_te, p_te)
+        }
+    }
 
 # ============================================================================
-# HYPOTHESIS ANALYSIS: SLEEP IMPACT
+# HYPOTHESIS ANALYSIS: SLEEP QUALITY AND SLEEP IMPACT
 # ============================================================================
 
 def analyze_sleep_by_beverage(df):
@@ -154,32 +164,37 @@ def analyze_sleep_by_beverage(df):
     print(f"   F-statistic: {f_stat:.4f}")
     print(f"   P-value: {p_value:.6f}")
     
-    if p_value < 0.05:
-        print("   RESULT: Significant difference in sleep quality between beverage types (p < 0.05)")
+    alpha = 0.05
+    if p_value < alpha:
+        print(f"   Result: Significant difference in sleep quality between beverage types (p < {alpha})")
     else:
-        print("   RESULT: No significant difference in sleep quality between beverage types (p >= 0.05)")
+        print(f"   Result: No significant difference in sleep quality between beverage types (p >= {alpha})")
     
-    # Chi-square test for sleep impact
+    # Sleep impact as categorical (chi-square test)
+    print("\n4. CHI-SQUARE TEST FOR SLEEP IMPACT BY BEVERAGE TYPE:")
     contingency_table = pd.crosstab(df['beverage_type'], df['sleep_impacted'])
-    chi2, p_value_chi, dof, expected = stats.chi2_contingency(contingency_table)
+    chi2, chi_p, dof, expected = stats.chi2_contingency(contingency_table)
     
-    print(f"\n4. CHI-SQUARE TEST (Sleep Impact Rates):")
-    print(f"   Chi-square statistic: {chi2:.4f}")
-    print(f"   P-value: {p_value_chi:.6f}")
+    print("   Contingency Table:")
+    print(contingency_table)
+    print(f"\n   Chi-square statistic: {chi2:.4f}")
+    print(f"   P-value: {chi_p:.6f}")
     print(f"   Degrees of freedom: {dof}")
     
-    if p_value_chi < 0.05:
-        print("   RESULT: Significant association between beverage type and sleep impact (p < 0.05)")
+    if chi_p < alpha:
+        print(f"   Result: Significant association between beverage type and sleep impact (p < {alpha})")
     else:
-        print("   RESULT: No significant association between beverage type and sleep impact (p >= 0.05)")
+        print(f"   Result: No significant association between beverage type and sleep impact (p >= {alpha})")
     
-    print("\n5. CONTINGENCY TABLE:")
-    print(contingency_table)
-    
-    return sleep_quality_stats, sleep_impact_stats
+    return {
+        'sleep_quality_stats': sleep_quality_stats,
+        'sleep_impact_stats': sleep_impact_stats,
+        'anova_sleep': (f_stat, p_value),
+        'chi_square': (chi2, chi_p, dof, expected)
+    }
 
 # ============================================================================
-# VISUALIZATION
+# VISUALIZATIONS
 # ============================================================================
 
 def create_visualizations(df):
@@ -208,41 +223,31 @@ def create_visualizations(df):
     
     # 3. Sleep Impact Rate by Beverage Type (Bar Plot)
     plt.subplot(2, 3, 3)
-    impact_rates = df.groupby('beverage_type')['sleep_impacted'].mean() * 100
-    colors = ['#ff9999', '#66b3ff', '#99ff99']
-    impact_rates.plot(kind='bar', color=colors)
+    impact_rates = df.groupby('beverage_type')['sleep_impacted'].mean()
+    sns.barplot(x=impact_rates.index, y=impact_rates.values, palette='coolwarm')
     plt.title('Sleep Impact Rate by Beverage Type', fontsize=14, fontweight='bold')
     plt.xlabel('Beverage Type')
-    plt.ylabel('Sleep Impact Rate (%)')
-    plt.xticks(rotation=45)
-    plt.ylim(0, 100)
-    
-    # 4. Focus Level vs Sleep Quality (Scatter)
-    plt.subplot(2, 3, 4)
-    for beverage in df['beverage_type'].unique():
-        if beverage != 'Unknown':
-            subset = df[df['beverage_type'] == beverage]
-            plt.scatter(subset['focus_level'], subset['sleep_quality'], 
-                       label=beverage, alpha=0.6, s=30)
-    plt.xlabel('Focus Level')
-    plt.ylabel('Sleep Quality')
-    plt.title('Focus Level vs Sleep Quality', fontsize=14, fontweight='bold')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    
-    # 5. Mean Comparison: Focus and Sleep
-    plt.subplot(2, 3, 5)
-    beverage_means = df.groupby('beverage_type')[['focus_level', 'sleep_quality']].mean()
-    beverage_means = beverage_means[beverage_means.index != 'Unknown']
-    beverage_means.plot(kind='bar', width=0.8)
-    plt.title('Mean Focus & Sleep Quality by Beverage', fontsize=14, fontweight='bold')
-    plt.xlabel('Beverage Type')
-    plt.ylabel('Mean Value')
-    plt.legend(['Focus Level', 'Sleep Quality'])
-    plt.xticks(rotation=45)
+    plt.ylabel('Impact Rate')
     plt.ylim(0, 1)
+    plt.xticks(rotation=45)
     
-    # 6. Distribution of Caffeine Intake
+    # 4. Focus Level vs Caffeine (Scatter Plot)
+    plt.subplot(2, 3, 4)
+    sns.scatterplot(data=df, x='caffeine_mg', y='focus_level', hue='beverage_type', alpha=0.7)
+    plt.xlabel('Caffeine (mg)')
+    plt.ylabel('Focus Level')
+    plt.title('Focus Level vs Caffeine Intake', fontsize=14, fontweight='bold')
+    plt.legend(title='Beverage', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # 5. Sleep Quality vs Caffeine (Scatter Plot)
+    plt.subplot(2, 3, 5)
+    sns.scatterplot(data=df, x='caffeine_mg', y='sleep_quality', hue='beverage_type', alpha=0.7)
+    plt.xlabel('Caffeine (mg)')
+    plt.ylabel('Sleep Quality')
+    plt.title('Sleep Quality vs Caffeine Intake', fontsize=14, fontweight='bold')
+    plt.legend(title='Beverage', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # 6. Distribution of Caffeine Intake by Beverage
     plt.subplot(2, 3, 6)
     for beverage in df['beverage_type'].unique():
         if beverage != 'Unknown':
@@ -280,49 +285,61 @@ def evaluate_hypothesis(df):
     
     print("KEY FINDINGS:")
     print("-" * 80)
+    print("\nAverage Focus Level by Beverage Type:")
+    print(focus_means.round(4))
     
-    # Part 1: Focus Levels
-    print("\n1. FOCUS LEVELS:")
-    coffee_focus = focus_means.get('Coffee', 0)
-    tea_focus = focus_means.get('Tea', 0)
-    energy_focus = focus_means.get('Energy Drink', 0)
+    print("\nAverage Sleep Quality by Beverage Type:")
+    print(sleep_quality_means.round(4))
     
-    print(f"   Coffee:        {coffee_focus:.4f}")
-    print(f"   Tea:           {tea_focus:.4f}")
-    print(f"   Energy Drink:  {energy_focus:.4f}")
+    print("\nSleep Impact Rate by Beverage Type:")
+    print(sleep_impact_rates.round(4))
+    
+    # Interpret results relative to hypothesis
+    coffee_focus = focus_means.get('Coffee', np.nan)
+    tea_focus = focus_means.get('Tea', np.nan)
+    energy_focus = focus_means.get('Energy Drink', np.nan)
+    
+    coffee_sleep = sleep_quality_means.get('Coffee', np.nan)
+    tea_sleep = sleep_quality_means.get('Tea', np.nan)
+    energy_sleep = sleep_quality_means.get('Energy Drink', np.nan)
+    
+    coffee_impact = sleep_impact_rates.get('Coffee', np.nan)
+    tea_impact = sleep_impact_rates.get('Tea', np.nan)
+    energy_impact = sleep_impact_rates.get('Energy Drink', np.nan)
+    
+    print("\nINTERPRETATION:")
+    print("-" * 80)
+    
+    # Focus level component
+    print("\n1. Focus Levels:")
+    print(f"   Coffee mean focus:        {coffee_focus:.4f}")
+    print(f"   Tea mean focus:           {tea_focus:.4f}")
+    print(f"   Energy Drink mean focus:  {energy_focus:.4f}")
     
     if coffee_focus > tea_focus and energy_focus > tea_focus:
-        print("   SUPPORTED: Coffee and Energy Drinks show higher focus levels than Tea")
+        print("   SUPPORTED: Coffee and energy drinks show higher focus than tea.")
     else:
-        print("   NOT SUPPORTED: Not all predictions about focus levels are supported")
+        print("   NOT FULLY SUPPORTED: Focus pattern does not fully match hypothesis.")
     
-    # Part 2: Sleep Quality
-    print("\n2. SLEEP QUALITY:")
-    coffee_sleep = sleep_quality_means.get('Coffee', 0)
-    tea_sleep = sleep_quality_means.get('Tea', 0)
-    energy_sleep = sleep_quality_means.get('Energy Drink', 0)
-    
-    print(f"   Coffee:        {coffee_sleep:.4f}")
-    print(f"   Tea:           {tea_sleep:.4f}")
-    print(f"   Energy Drink:  {energy_sleep:.4f}")
+    # Sleep quality component
+    print("\n2. Sleep Quality:")
+    print(f"   Coffee mean sleep quality:        {coffee_sleep:.4f}")
+    print(f"   Tea mean sleep quality:           {tea_sleep:.4f}")
+    print(f"   Energy Drink mean sleep quality:  {energy_sleep:.4f}")
     
     if tea_sleep > coffee_sleep and tea_sleep > energy_sleep:
-        print("   SUPPORTED: Tea shows better sleep quality than Coffee and Energy Drinks")
+        print("   SUPPORTED: Tea shows better sleep quality than coffee and energy drinks.")
     else:
-        print("   PARTIALLY SUPPORTED: Sleep quality patterns differ from hypothesis")
+        print("   NOT FULLY SUPPORTED: Sleep quality pattern does not fully match hypothesis.")
     
-    # Part 3: Sleep Impact
-    print("\n3. SLEEP IMPACT RATES:")
-    coffee_impact = sleep_impact_rates.get('Coffee', 0)
-    tea_impact = sleep_impact_rates.get('Tea', 0)
-    energy_impact = sleep_impact_rates.get('Energy Drink', 0)
-    
-    print(f"   Coffee:        {coffee_impact*100:.2f}%")
-    print(f"   Tea:           {tea_impact*100:.2f}%")
-    print(f"   Energy Drink:  {energy_impact*100:.2f}%")
+    # Sleep impact component
+    print("\n3. Sleep Impact Rate (higher = more negative impact):")
+    print(f"   Coffee sleep impact rate:        {coffee_impact:.4f}")
+    print(f"   Tea sleep impact rate:           {tea_impact:.4f}")
+    print(f"   Energy Drink sleep impact rate:  {energy_impact:.4f}")
     
     if coffee_impact > tea_impact and energy_impact > tea_impact:
-        print("   SUPPORTED: Coffee and Energy Drinks have higher sleep impact rates than Tea")
+        print("   SUPPORTED: Coffee and energy drinks have a more negative impact on sleep than tea.")
     else:
         print("   NOT SUPPORTED: Sleep impact patterns differ from hypothesis")
     
@@ -350,6 +367,137 @@ def evaluate_hypothesis(df):
     print("alongside these mean comparisons for robust conclusions.")
 
 # ============================================================================
+# PREDICTIVE MODELING: SLEEP IMPACT CLASSIFICATION
+# ============================================================================
+
+def run_predictive_models(df):
+    """
+    Build and evaluate two classification models to predict whether sleep is impacted (sleep_impacted).
+    This aligns with the project requirement to implement at least two models and compare performance.
+    """
+    print("\n" + "="*80)
+    print("PREDICTIVE MODELING: SLEEP IMPACT CLASSIFICATION")
+    print("="*80)
+
+    # Local imports so we do not change the global import section
+    from sklearn.model_selection import train_test_split
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.metrics import (
+        accuracy_score,
+        precision_score,
+        recall_score,
+        f1_score,
+        classification_report,
+        confusion_matrix,
+    )
+    import numpy as np
+
+    # Use caffeine + context features (not the subjective outcomes) to predict sleep impact
+    feature_cols = [
+        "caffeine_mg",
+        "age",
+        "beverage_coffee",
+        "beverage_energy_drink",
+        "beverage_tea",
+        "time_of_day_afternoon",
+        "time_of_day_evening",
+        "time_of_day_morning",
+        "gender_female",
+        "gender_male",
+    ]
+
+    # Basic safety check in case the dataset changes
+    missing_cols = [c for c in feature_cols if c not in df.columns]
+    if missing_cols:
+        print("\nWARNING: The following expected feature columns are missing from the dataframe:")
+        for col in missing_cols:
+            print(f"   - {col}")
+        print("Predictive models cannot be trained without these columns.")
+        return
+
+    X = df[feature_cols].astype(float)
+    y = df["sleep_impacted"].astype(int)
+
+    # Train / test split (similar style to Week 8 / Week 9)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.25,
+        random_state=42,
+        stratify=y,
+    )
+
+    print("\n1. TRAIN / TEST SPLIT:")
+    print("-" * 80)
+    print(f"Training samples: {len(X_train)}")
+    print(f"Test samples    : {len(X_test)}")
+
+    def print_metrics(name, y_true, y_pred):
+        acc = accuracy_score(y_true, y_pred)
+        prec = precision_score(y_true, y_pred, zero_division=0)
+        rec = recall_score(y_true, y_pred, zero_division=0)
+        f1 = f1_score(y_true, y_pred, zero_division=0)
+
+        print(f"\n{name} PERFORMANCE (test set):")
+        print("-" * 80)
+        print(f"Accuracy : {acc:.3f}")
+        print(f"Precision: {prec:.3f}")
+        print(f"Recall   : {rec:.3f}")
+        print(f"F1-score : {f1:.3f}")
+        print("\nClassification report:")
+        print(classification_report(y_true, y_pred, digits=3, zero_division=0))
+        print("Confusion matrix (rows = true, cols = predicted):")
+        print(confusion_matrix(y_true, y_pred))
+
+        return acc
+
+    # ------------------------------------------------------------
+    # Model 1: Logistic Regression (baseline linear classifier)
+    # ------------------------------------------------------------
+    log_reg = LogisticRegression(max_iter=1000, random_state=42)
+    log_reg.fit(X_train, y_train)
+    y_pred_lr = log_reg.predict(X_test)
+    acc_lr = print_metrics("Logistic Regression", y_test, y_pred_lr)
+
+    # ------------------------------------------------------------
+    # Model 2: Random Forest (non-linear ensemble)
+    # ------------------------------------------------------------
+    rf = RandomForestClassifier(
+        n_estimators=300,
+        random_state=42,
+    )
+    rf.fit(X_train, y_train)
+    y_pred_rf = rf.predict(X_test)
+    acc_rf = print_metrics("Random Forest", y_test, y_pred_rf)
+
+    # Feature importance from Random Forest
+    importances = rf.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    print("\n3. RANDOM FOREST FEATURE IMPORTANCES:")
+    print("-" * 80)
+    for idx in indices:
+        print(f"   {feature_cols[idx]}: {importances[idx]:.3f}")
+
+    # Comparison summary and simple "pass/fail" check like Week 9
+    threshold = 0.50
+    print("\n" + "="*80)
+    print("MODEL COMPARISON SUMMARY")
+    print("="*80)
+    print(f"Logistic Regression accuracy : {acc_lr:.3f}")
+    print(f"Random Forest accuracy       : {acc_rf:.3f}")
+    print(f"Logistic Regression > 50%? {'YES' if acc_lr >= threshold else 'NO'}  (acc={acc_lr:.3f})")
+    print(f"Random Forest > 50%?       {'YES' if acc_rf >= threshold else 'NO'}  (acc={acc_rf:.3f})")
+
+    if acc_lr > acc_rf:
+        print("\nLogistic Regression is the better model on this split.")
+    elif acc_rf > acc_lr:
+        print("\nRandom Forest is the better model on this split.")
+    else:
+        print("\nThe two models have very similar accuracy on this split.")
+
+# ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
@@ -372,7 +520,10 @@ def main():
     
     # Evaluate hypothesis
     evaluate_hypothesis(df)
-    
+
+    # Predictive modeling: sleep impact classification
+    run_predictive_models(df)
+
     print("\n" + "="*80)
     print("ANALYSIS COMPLETE")
     print("="*80)
