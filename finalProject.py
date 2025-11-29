@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
+import os
 
 # Set style for better visualizations
 sns.set_style("whitegrid")
@@ -202,67 +203,93 @@ def create_visualizations(df):
     print("\n" + "="*80)
     print("GENERATING VISUALIZATIONS")
     print("="*80)
-    
-    fig = plt.figure(figsize=(16, 12))
-    
+    # Ensure plots output directory exists
+    plots_dir = os.path.join(os.getcwd(), 'plots')
+    os.makedirs(plots_dir, exist_ok=True)
+
+    saved_files = []
+
     # 1. Focus Level by Beverage Type (Box Plot)
-    plt.subplot(2, 3, 1)
+    fig = plt.figure(figsize=(10, 6))
     sns.boxplot(data=df, x='beverage_type', y='focus_level', palette='Set2')
     plt.title('Focus Level by Beverage Type', fontsize=14, fontweight='bold')
     plt.xlabel('Beverage Type')
     plt.ylabel('Focus Level')
     plt.xticks(rotation=45)
-    
+    fname = os.path.join(plots_dir, 'focus_by_beverage_boxplot.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
     # 2. Sleep Quality by Beverage Type (Box Plot)
-    plt.subplot(2, 3, 2)
+    fig = plt.figure(figsize=(10, 6))
     sns.boxplot(data=df, x='beverage_type', y='sleep_quality', palette='Set3')
     plt.title('Sleep Quality by Beverage Type', fontsize=14, fontweight='bold')
     plt.xlabel('Beverage Type')
     plt.ylabel('Sleep Quality')
     plt.xticks(rotation=45)
-    
+    fname = os.path.join(plots_dir, 'sleep_quality_by_beverage_boxplot.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
     # 3. Sleep Impact Rate by Beverage Type (Bar Plot)
-    plt.subplot(2, 3, 3)
     impact_rates = df.groupby('beverage_type')['sleep_impacted'].mean()
+    fig = plt.figure(figsize=(8, 6))
     sns.barplot(x=impact_rates.index, y=impact_rates.values, palette='coolwarm')
     plt.title('Sleep Impact Rate by Beverage Type', fontsize=14, fontweight='bold')
     plt.xlabel('Beverage Type')
     plt.ylabel('Impact Rate')
     plt.ylim(0, 1)
     plt.xticks(rotation=45)
-    
+    fname = os.path.join(plots_dir, 'sleep_impact_rate_by_beverage.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
     # 4. Focus Level vs Caffeine (Scatter Plot)
-    plt.subplot(2, 3, 4)
+    fig = plt.figure(figsize=(8, 6))
     sns.scatterplot(data=df, x='caffeine_mg', y='focus_level', hue='beverage_type', alpha=0.7)
     plt.xlabel('Caffeine (mg)')
     plt.ylabel('Focus Level')
     plt.title('Focus Level vs Caffeine Intake', fontsize=14, fontweight='bold')
     plt.legend(title='Beverage', bbox_to_anchor=(1.05, 1), loc='upper left')
-    
+    fname = os.path.join(plots_dir, 'focus_vs_caffeine_scatter.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
     # 5. Sleep Quality vs Caffeine (Scatter Plot)
-    plt.subplot(2, 3, 5)
+    fig = plt.figure(figsize=(8, 6))
     sns.scatterplot(data=df, x='caffeine_mg', y='sleep_quality', hue='beverage_type', alpha=0.7)
     plt.xlabel('Caffeine (mg)')
     plt.ylabel('Sleep Quality')
     plt.title('Sleep Quality vs Caffeine Intake', fontsize=14, fontweight='bold')
     plt.legend(title='Beverage', bbox_to_anchor=(1.05, 1), loc='upper left')
-    
+    fname = os.path.join(plots_dir, 'sleep_quality_vs_caffeine_scatter.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
     # 6. Distribution of Caffeine Intake by Beverage
-    plt.subplot(2, 3, 6)
+    fig = plt.figure(figsize=(10, 6))
     for beverage in df['beverage_type'].unique():
         if beverage != 'Unknown':
-            subset = df[df['beverage_type'] == beverage]['caffeine_mg']
+            subset = df[df['beverage_type'] == beverage]['caffeine_mg'].dropna()
             plt.hist(subset, alpha=0.5, label=beverage, bins=20)
-    plt.xlabel('Caffeine (mg) - Normalized')
+    plt.xlabel('Caffeine (mg)')
     plt.ylabel('Frequency')
     plt.title('Caffeine Intake Distribution by Beverage', fontsize=14, fontweight='bold')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig('caffeine_analysis_results.png', dpi=300, bbox_inches='tight')
-    print("Visualization saved as 'caffeine_analysis_results.png'")
-    plt.show()
+    fname = os.path.join(plots_dir, 'caffeine_distribution_by_beverage.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_files.append(fname)
+
+    print(f"Saved {len(saved_files)} visualizations to the 'plots/' directory:")
+    for p in saved_files:
+        print(f"  - {p}")
 
 # ============================================================================
 # HYPOTHESIS EVALUATION
