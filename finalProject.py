@@ -418,26 +418,34 @@ def create_model_visualizations(log_reg, rf, X_test, y_test, y_pred_lr, y_pred_r
     fpr_rf, tpr_rf, _ = roc_curve(y_test, y_pred_proba_rf)
     auc_rf = auc(fpr_rf, tpr_rf)
     
-    # ---- 1. Confusion Matrices Side-by-Side ----
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    
+    # ---- 1. Logistic Regression Confusion Matrix ----
     cm_lr = confusion_matrix(y_test, y_pred_lr)
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(cm_lr, annot=True, fmt='d', cmap='Blues', ax=ax, cbar=True,
+                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'],
+                annot_kws={'size': 14, 'weight': 'bold'})
+    ax.set_title('Logistic Regression\nConfusion Matrix', fontsize=14, fontweight='bold')
+    ax.set_ylabel('True Label', fontsize=12)
+    ax.set_xlabel('Predicted Label', fontsize=12)
+    plt.tight_layout()
+    fname = os.path.join(plots_dir, 'logistic_regression_confusion_matrix.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_model_graphs.append(fname)
+    
+    # ---- 2. Random Forest Confusion Matrix ----
     cm_rf = confusion_matrix(y_test, y_pred_rf)
     
-    sns.heatmap(cm_lr, annot=True, fmt='d', cmap='Blues', ax=axes[0], cbar=False,
-                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'])
-    axes[0].set_title('Logistic Regression\nConfusion Matrix', fontsize=12, fontweight='bold')
-    axes[0].set_ylabel('True Label')
-    axes[0].set_xlabel('Predicted Label')
-    
-    sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Greens', ax=axes[1], cbar=False,
-                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'])
-    axes[1].set_title('Random Forest\nConfusion Matrix', fontsize=12, fontweight='bold')
-    axes[1].set_ylabel('True Label')
-    axes[1].set_xlabel('Predicted Label')
-    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Greens', ax=ax, cbar=True,
+                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'],
+                annot_kws={'size': 14, 'weight': 'bold'})
+    ax.set_title('Random Forest\nConfusion Matrix', fontsize=14, fontweight='bold')
+    ax.set_ylabel('True Label', fontsize=12)
+    ax.set_xlabel('Predicted Label', fontsize=12)
     plt.tight_layout()
-    fname = os.path.join(plots_dir, 'model_confusion_matrices.png')
+    fname = os.path.join(plots_dir, 'random_forest_confusion_matrix.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
     plt.close(fig)
     saved_model_graphs.append(fname)
