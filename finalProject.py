@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 import os
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 # Set style for better visualizations
 sns.set_style("whitegrid")
@@ -394,6 +395,224 @@ def evaluate_hypothesis(df):
     print("alongside these mean comparisons for robust conclusions.")
 
 # ============================================================================
+# MODEL VISUALIZATION AND EVALUATION GRAPHS
+# ============================================================================
+
+def create_model_visualizations(log_reg, rf, X_test, y_test, y_pred_lr, y_pred_rf, feature_cols, plots_dir):
+    """Create comprehensive visualizations for model evaluation"""
+    print("\n" + "="*80)
+    print("GENERATING MODEL EVALUATION VISUALIZATIONS")
+    print("="*80)
+    
+    import os
+    saved_model_graphs = []
+    
+    # Get predicted probabilities for ROC curves
+    y_pred_proba_lr = log_reg.predict_proba(X_test)[:, 1]
+    y_pred_proba_rf = rf.predict_proba(X_test)[:, 1]
+    
+    # Calculate ROC metrics
+    fpr_lr, tpr_lr, _ = roc_curve(y_test, y_pred_proba_lr)
+    auc_lr = auc(fpr_lr, tpr_lr)
+    
+    fpr_rf, tpr_rf, _ = roc_curve(y_test, y_pred_proba_rf)
+    auc_rf = auc(fpr_rf, tpr_rf)
+    
+    # ---- 1. Confusion Matrices Side-by-Side ----
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    
+    cm_lr = confusion_matrix(y_test, y_pred_lr)
+    cm_rf = confusion_matrix(y_test, y_pred_rf)
+    
+    sns.heatmap(cm_lr, annot=True, fmt='d', cmap='Blues', ax=axes[0], cbar=False,
+                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'])
+    axes[0].set_title('Logistic Regression\nConfusion Matrix', fontsize=12, fontweight='bold')
+    axes[0].set_ylabel('True Label')
+    axes[0].set_xlabel('Predicted Label')
+    
+    sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Greens', ax=axes[1], cbar=False,
+                xticklabels=['No Impact', 'Impact'], yticklabels=['No Impact', 'Impact'])
+    axes[1].set_title('Random Forest\nConfusion Matrix', fontsize=12, fontweight='bold')
+    axes[1].set_ylabel('True Label')
+    axes[1].set_xlabel('Predicted Label')
+    
+    plt.tight_layout()
+    fname = os.path.join(plots_dir, 'model_confusion_matrices.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_model_graphs.append(fname)
+    
+    # ---- 2. ROC Curves Comparison ----
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    ax.plot(fpr_lr, tpr_lr, color='blue', lw=2, label=f'Logistic Regression (AUC = {auc_lr:.3f})')
+    ax.plot(fpr_rf, tpr_rf, color='green', lw=2, label=f'Random Forest (AUC = {auc_rf:.3f})')
+    ax.plot([0, 1], [0, 1], color='red', lw=2, linestyle='--', label='Random Classifier (AUC = 0.500)')
+    
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate', fontsize=11)
+    ax.set_ylabel('True Positive Rate', fontsize=11)
+    ax.set_title('ROC Curves: Model Comparison', fontsize=13, fontweight='bold')
+    ax.legend(loc="lower right", fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    fname = os.path.join(plots_dir, 'model_roc_curves.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_model_graphs.append(fname)
+    
+    # ---- 3. Feature Importance (Random Forest) ----
+    importances = rf.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    colors = plt.cm.viridis(np.linspace(0, 1, len(feature_cols)))
+    bars = ax.barh(range(len(feature_cols)), importances[indices], color=colors)
+    ax.set_yticks(range(len(feature_cols)))
+    ax.set_yticklabels([feature_cols[i] for i in indices], fontsize=10)
+    ax.set_xlabel('Feature Importance', fontsize=11)
+    ax.set_title('Random Forest: Feature Importance', fontsize=13, fontweight='bold')
+    ax.invert_yaxis()
+    ax.grid(True, alpha=0.3, axis='x')
+    
+    # Add values on bars
+    for i, bar in enumerate(bars):
+        width = bar.get_width()
+        ax.text(width, bar.get_y() + bar.get_height() / 2, 
+                f'{width:.3f}', ha='left', va='center', fontsize=9)
+    
+    plt.tight_layout()
+    fname = os.path.join(plots_dir, 'model_feature_importance.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_model_graphs.append(fname)
+    
+    # ---- 4. Model Performance Metrics Comparison ----
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+    
+    acc_lr = accuracy_score(y_test, y_pred_lr)
+    prec_lr = precision_score(y_test, y_pred_lr, zero_division=0)
+    rec_lr = recall_score(y_test, y_pred_lr, zero_division=0)
+    f1_lr = f1_score(y_test, y_pred_lr, zero_division=0)
+    
+    acc_rf = accuracy_score(y_test, y_pred_rf)
+    prec_rf = precision_score(y_test, y_pred_rf, zero_division=0)
+    rec_rf = recall_score(y_test, y_pred_rf, zero_division=0)
+    f1_rf = f1_score(y_test, y_pred_rf, zero_division=0)
+    
+    metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC']
+    lr_scores = [acc_lr, prec_lr, rec_lr, f1_lr, auc_lr]
+    rf_scores = [acc_rf, prec_rf, rec_rf, f1_rf, auc_rf]
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    x = np.arange(len(metrics))
+    width = 0.35
+    
+    bars1 = ax.bar(x - width/2, lr_scores, width, label='Logistic Regression', color='skyblue', edgecolor='black')
+    bars2 = ax.bar(x + width/2, rf_scores, width, label='Random Forest', color='lightgreen', edgecolor='black')
+    
+    ax.set_ylabel('Score', fontsize=11)
+    ax.set_title('Model Performance Comparison: All Metrics', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics, fontsize=10)
+    ax.legend(fontsize=10)
+    ax.set_ylim([0, 1.1])
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    # Add value labels on bars
+    for bars in [bars1, bars2]:
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{height:.3f}', ha='center', va='bottom', fontsize=9)
+    
+    plt.tight_layout()
+    fname = os.path.join(plots_dir, 'model_performance_comparison.png')
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    saved_model_graphs.append(fname)
+    
+    # Print summary and interpretation
+    print("\nModel Evaluation Visualizations Created:")
+    for p in saved_model_graphs:
+        print(f"  - {p}")
+    
+    print("\n" + "="*80)
+    print("MODEL INTERPRETATION & JUSTIFICATION")
+    print("="*80)
+    
+    print("\n1. MODEL CHOICES:")
+    print("-" * 80)
+    print("   a) Logistic Regression:")
+    print("      - Linear baseline model, easy to interpret coefficients")
+    print("      - Fast training; good for understanding feature impact")
+    print("      - Suitable for binary classification (sleep impacted: yes/no)")
+    print("\n   b) Random Forest:")
+    print("      - Non-linear ensemble model; captures complex interactions")
+    print("      - Handles multi-class and mixed data types well")
+    print("      - Provides feature importance rankings")
+    print("      - Less prone to overfitting than single decision trees")
+    
+    print("\n2. CONFUSION MATRIX INTERPRETATION:")
+    print("-" * 80)
+    print(f"   Logistic Regression:")
+    print(f"      TN={cm_lr[0,0]}, FP={cm_lr[0,1]}, FN={cm_lr[1,0]}, TP={cm_lr[1,1]}")
+    print(f"   Random Forest:")
+    print(f"      TN={cm_rf[0,0]}, FP={cm_rf[0,1]}, FN={cm_rf[1,0]}, TP={cm_rf[1,1]}")
+    print("\n      (TN=True Negative, FP=False Positive, FN=False Negative, TP=True Positive)")
+    
+    print("\n3. ROC CURVE ANALYSIS:")
+    print("-" * 80)
+    print(f"   Logistic Regression AUC: {auc_lr:.4f}")
+    print(f"   Random Forest AUC: {auc_rf:.4f}")
+    if auc_rf > auc_lr:
+        print(f"   --> Random Forest has better overall classification performance (higher AUC)")
+    else:
+        print(f"   --> Logistic Regression has better overall classification performance (higher AUC)")
+    
+    print("\n4. FEATURE IMPORTANCE (Random Forest):")
+    print("-" * 80)
+    print("   Top 5 Most Important Features:")
+    for i in range(min(5, len(feature_cols))):
+        idx = indices[i]
+        print(f"      {i+1}. {feature_cols[idx]}: {importances[idx]:.4f}")
+    
+    print("\n5. PERFORMANCE METRICS SUMMARY:")
+    print("-" * 80)
+    print(f"   {'Metric':<15} {'Logistic Reg':<15} {'Random Forest':<15}")
+    print(f"   {'-'*45}")
+    print(f"   {'Accuracy':<15} {acc_lr:<15.4f} {acc_rf:<15.4f}")
+    print(f"   {'Precision':<15} {prec_lr:<15.4f} {prec_rf:<15.4f}")
+    print(f"   {'Recall':<15} {rec_lr:<15.4f} {rec_rf:<15.4f}")
+    print(f"   {'F1-Score':<15} {f1_lr:<15.4f} {f1_rf:<15.4f}")
+    print(f"   {'AUC':<15} {auc_lr:<15.4f} {auc_rf:<15.4f}")
+    
+    print("\n6. BEST MODEL RECOMMENDATION:")
+    print("-" * 80)
+    if auc_rf > auc_lr and acc_rf >= acc_lr:
+        print(f"   --> RANDOM FOREST is the recommended model")
+        print(f"   --> Superior AUC ({auc_rf:.4f} vs {auc_lr:.4f}) indicates better discrimination")
+        print(f"   --> Captures non-linear relationships between caffeine intake and sleep impact")
+    elif auc_lr >= auc_rf and acc_lr > acc_rf:
+        print(f"   --> LOGISTIC REGRESSION is the recommended model")
+        print(f"   --> More interpretable coefficients for stakeholder communication")
+        print(f"   --> Better generalization with simpler model")
+    else:
+        print(f"   --> Models have comparable performance")
+        print(f"   --> Consider ensemble or stacking approaches for improvement")
+    
+    return {
+        'auc_lr': auc_lr,
+        'auc_rf': auc_rf,
+        'acc_lr': acc_lr,
+        'acc_rf': acc_rf,
+        'f1_lr': f1_lr,
+        'f1_rf': f1_rf,
+    }
+
+# ============================================================================
 # PREDICTIVE MODELING: SLEEP IMPACT CLASSIFICATION
 # ============================================================================
 
@@ -417,6 +636,9 @@ def run_predictive_models(df):
         f1_score,
         classification_report,
         confusion_matrix,
+        roc_curve,
+        auc,
+        roc_auc_score,
     )
     import numpy as np
 
@@ -523,6 +745,12 @@ def run_predictive_models(df):
         print("\nRandom Forest is the better model on this split.")
     else:
         print("\nThe two models have very similar accuracy on this split.")
+    
+    # Create model evaluation visualizations
+    plots_dir = os.path.join(os.getcwd(), 'plots')
+    create_model_visualizations(log_reg, rf, X_test, y_test, y_pred_lr, y_pred_rf, feature_cols, plots_dir)
+
+# ============================================================================
 
 # ============================================================================
 # MAIN EXECUTION
